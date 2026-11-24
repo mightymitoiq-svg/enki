@@ -1,0 +1,15 @@
+{
+  "name": "enki",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ENKI — private, local-first AI development platform",
+  "scripts": {
+    "dev": "npm --prefix ui run dev",
+    "build": "npm --prefix ui run build",
+    "test": "npm --prefix ui test",
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.6"
+  }
+}
