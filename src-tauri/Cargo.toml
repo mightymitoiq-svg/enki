@@ -1,0 +1,36 @@
+[package]
+name = "enki"
+version = "0.1.0"
+description = "ENKI — private, local-first AI development platform"
+edition = "2021"
+rust-version = "1.82"
+
+[lib]
+name = "enki_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "enki"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+thiserror = "2"
+keyring = { version = "3", features = ["windows-native", "linux-native-sync-persistent"] }
+uuid = { version = "1", features = ["v4"] }
+url = "2"
+ureq = { version = "2", features = ["json"] }
+dirs = "6"
+[profile.dev]
+debug = 0
+split-debuginfo = "off"
+
+[profile.test]
+debug = 0
