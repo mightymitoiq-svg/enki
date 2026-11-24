@@ -79,6 +79,13 @@ impl MemoryCredentialStore {
 }
 
 #[cfg(test)]
+impl Default for MemoryCredentialStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
 impl CredentialStore for MemoryCredentialStore {
     fn set_credential(&self, service_id: &str, secret: &str) -> Result<()> {
         self.map

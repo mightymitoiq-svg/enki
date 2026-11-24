@@ -125,7 +125,7 @@ mod tests {
         let mut path = std::env::temp_dir();
         path.push(format!("enki-mig-test-{}.db", std::process::id()));
         let _ = std::fs::remove_file(&path);
-        let conn = open(&path).unwrap();
+        open(&path).unwrap();
         // Re-open: must not fail or duplicate.
         let conn2 = open(&path).unwrap();
         let count: i64 = conn2

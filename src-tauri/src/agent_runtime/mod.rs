@@ -129,7 +129,13 @@ mod tests {
                 },
                 capabilities: EngineCapabilities {
                     streaming: self.installed,
-                    ..Default::default()
+                    tool_calls: false,
+                    file_editing: false,
+                    terminal_execution: false,
+                    session_persistence: false,
+                    interrupt: false,
+                    multi_agent: false,
+                    extras: BTreeMap::new(),
                 },
                 detected_version: self.installed.then(|| "1.0.0".into()),
                 notes: vec![],

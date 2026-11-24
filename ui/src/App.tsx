@@ -1,122 +1,105 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import {
+  Bot,
+  Home,
+  Package,
+  Settings as SettingsIcon,
+  ShieldCheck,
+} from "lucide-react";
+import HomePage from "./pages/HomePage";
+import ProvidersPage from "./pages/ProvidersPage";
+import AgentsPage from "./pages/AgentsPage";
+import SettingsPage from "./pages/SettingsPage";
+import { api } from "./lib/api";
+import { cn } from "./lib/utils";
 
-function App() {
-  const [count, setCount] = useState(0)
+type PageId = "home" | "providers" | "agents" | "settings";
+
+const NAV_ITEMS: {
+  id: PageId;
+  label: string;
+  icon: typeof Home;
+}[] = [
+  { id: "home", label: "Home", icon: Home },
+  { id: "providers", label: "Providers", icon: Package },
+  { id: "agents", label: "Agents", icon: Bot },
+  { id: "settings", label: "Settings", icon: SettingsIcon },
+];
+
+export default function App() {
+  const [page, setPage] = useState<PageId>("home");
+  const [version, setVersion] = useState<string>("");
+
+  useEffect(() => {
+    api.appVersion().then(setVersion).catch(() => setVersion("?"));
+  }, []);
+
+  // Keyboard navigation: Alt+1..4 switch pages
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        const idx = parseInt(e.key, 10) - 1;
+        if (idx >= 0 && idx < NAV_ITEMS.length) {
+          e.preventDefault();
+          setPage(NAV_ITEMS[idx].id);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+    <div className="flex h-full w-full overflow-hidden bg-base">
+      {/* Compact icon navigation */}
+      <nav
+        aria-label="Primary"
+        className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-line bg-surface py-3"
+      >
+        <div
+          className="mb-3 flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-accent to-violet"
+          aria-label="ENKI"
         >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+          <span className="select-none font-mono text-[11px] font-bold text-base">
+            E
+          </span>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
+        {NAV_ITEMS.map((item, i) => (
+          <button
+            key={item.id}
+            onClick={() => setPage(item.id)}
+            title={`${item.label} (Alt+${i + 1})`}
+            aria-current={page === item.id ? "page" : undefined}
+            className={cn(
+              "group relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
+              page === item.id
+                ? "bg-surface-2 text-ink"
+                : "text-ink-faint hover:bg-surface-1 hover:text-ink-dim",
+            )}
+          >
+            <item.icon size={17} strokeWidth={1.8} />
+            {page === item.id && (
+              <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r bg-accent" />
+            )}
+          </button>
+        ))}
+        <div className="mt-auto flex flex-col items-center gap-2">
+          <span
+            className="text-ink-faint"
+            title="Security: project-scoped filesystem access"
+          >
+            <ShieldCheck size={16} strokeWidth={1.8} />
+          </span>
+          <span className="font-mono text-[9px] text-ink-faint">v{version}</span>
         </div>
-      </section>
+      </nav>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      <main className="min-w-0 flex-1 overflow-y-auto">
+        {page === "home" && <HomePage onNavigate={setPage} />}
+        {page === "providers" && <ProvidersPage />}
+        {page === "agents" && <AgentsPage />}
+        {page === "settings" && <SettingsPage />}
+      </main>
+    </div>
+  );
 }
-
-export default App

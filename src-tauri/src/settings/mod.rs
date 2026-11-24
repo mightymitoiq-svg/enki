@@ -128,15 +128,21 @@ mod tests {
 
     #[test]
     fn rejects_bad_values() {
-        let mut s = AppSettings::default();
-        s.theme = "neon".into();
-        assert!(s.validate().is_err());
-        s = AppSettings::default();
-        s.editor_font_size = 99;
-        assert!(s.validate().is_err());
-        s = AppSettings::default();
-        s.monthly_budget_usd_cents = -5;
-        assert!(s.validate().is_err());
+        let bad_theme = AppSettings {
+            theme: "neon".into(),
+            ..AppSettings::default()
+        };
+        assert!(bad_theme.validate().is_err());
+        let bad_font = AppSettings {
+            editor_font_size: 99,
+            ..AppSettings::default()
+        };
+        assert!(bad_font.validate().is_err());
+        let bad_budget = AppSettings {
+            monthly_budget_usd_cents: -5,
+            ..AppSettings::default()
+        };
+        assert!(bad_budget.validate().is_err());
     }
 
     #[test]
