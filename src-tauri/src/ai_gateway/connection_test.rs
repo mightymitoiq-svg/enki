@@ -128,7 +128,7 @@ fn scrub(msg: &str) -> String {
     // key=... in URLs (Google protocol)
     if let Some(start) = out.find("key=") {
         let end = out[start..]
-            .find(|c| c == '&' || c == ' ' || c == '"' || c == '\'')
+            .find(['&', ' ', '"', '\''])
             .map(|i| start + i)
             .unwrap_or(out.len());
         out.replace_range(start..end, "key=[redacted]");
@@ -139,7 +139,7 @@ fn scrub(msg: &str) -> String {
     if let Some(start) = out.find("Bearer ") {
         let from = start + "Bearer ".len();
         let end = out[from..]
-            .find(|c| c == ' ' || c == '"' || c == '\'')
+            .find([' ', '"', '\''])
             .map(|i| from + i)
             .unwrap_or(out.len());
         out.replace_range(start..end, "Bearer [redacted]");
