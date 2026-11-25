@@ -70,9 +70,9 @@ audited.
 ### agent_runtime
 - `AgentEngineAdapter` trait: `id`, `display_name`, `adapter_version`,
   `discover()`. Discovery is a real probe (`opencode --version` on PATH).
-- `EngineCapabilities` describes what an engine supports; `EngineInfo`
-  carries status + notes. The UI renders unsupported capabilities as
-  unsupported (struck through) — nothing simulated.
+- `EngineCapabilities` describes what ENKI's adapter actually implements;
+  discovering an installed executable does not imply integration. The UI
+  renders unimplemented features as unavailable in ENKI.
 - `OpenCodeAdapter` is the first engine. Codex / Claude Code / custom adapters
   implement the same trait. Deep session integration (run, stream, interrupt)
   is milestone 2; the adapter says so in its notes.
@@ -114,7 +114,10 @@ is parsed with Zod before rendering.
 - Filesystem: project-scoped via `path_is_within`; traversal-safe; outside
   writes rejected; outside reads opt-in and audited.
 - Credentials: OS keyring only; never in SQLite, logs, or frontend state.
-- Network: outbound only for provider connection tests (user-initiated).
+- Network: outbound only for provider connection tests (user-initiated); keyed
+  requests require HTTPS except for loopback services and use a bounded timeout.
+- Database: provider settings are read before network work; the SQLite mutex is
+  released during the HTTP request and reacquired only for the audit result.
 - Audit: security events recorded with details.
 - Planned (milestone 2+): agent tool execution permissions, terminal command
   approval flow, process lifecycle sandboxing.

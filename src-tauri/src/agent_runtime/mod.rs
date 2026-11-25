@@ -3,9 +3,8 @@ pub mod opencode;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// What an agent engine can do. Discovered at runtime, never hardcoded per-engine
-/// beyond safe assumptions documented in each adapter. Engines are not assumed
-/// equal; the UI must render unsupported features as unsupported.
+/// What ENKI's adapter currently implements for an engine.
+/// Engine installation alone is not evidence that ENKI can use a capability.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
 pub struct EngineCapabilities {
     pub streaming: bool,
@@ -65,7 +64,9 @@ pub struct EngineRegistry {
 
 impl EngineRegistry {
     pub fn new() -> Self {
-        Self { adapters: Vec::new() }
+        Self {
+            adapters: Vec::new(),
+        }
     }
 
     pub fn register(&mut self, adapter: Box<dyn AgentEngineAdapter>) {
@@ -77,7 +78,10 @@ impl EngineRegistry {
     }
 
     pub fn get(&self, id: &str) -> Option<&dyn AgentEngineAdapter> {
-        self.adapters.iter().map(|a| a.as_ref()).find(|a| a.id() == id)
+        self.adapters
+            .iter()
+            .map(|a| a.as_ref())
+            .find(|a| a.id() == id)
     }
 
     pub fn ids(&self) -> Vec<&'static str> {
@@ -146,8 +150,14 @@ mod tests {
     #[test]
     fn registry_discovers_all() {
         let mut reg = EngineRegistry::new();
-        reg.register(Box::new(FakeEngine { id: "a", installed: true }));
-        reg.register(Box::new(FakeEngine { id: "b", installed: false }));
+        reg.register(Box::new(FakeEngine {
+            id: "a",
+            installed: true,
+        }));
+        reg.register(Box::new(FakeEngine {
+            id: "b",
+            installed: false,
+        }));
         let infos = reg.discover_all();
         assert_eq!(infos.len(), 2);
         assert_eq!(infos[0].status, EngineStatus::Available);

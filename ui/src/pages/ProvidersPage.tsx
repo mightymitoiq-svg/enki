@@ -9,6 +9,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { api } from "../lib/api";
+import Dialog from "../components/Dialog";
 import type {
   ConnectionTestResult,
   Model,
@@ -43,6 +44,13 @@ export default function ProvidersPage() {
     base_url: "",
   });
   const [formError, setFormError] = useState<string | null>(null);
+  const [keyProvider, setKeyProvider] = useState<Provider | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [keySaving, setKeySaving] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
+  const [providerToDelete, setProviderToDelete] = useState<Provider | null>(null);
+  const [providerDeleting, setProviderDeleting] = useState(false);
+  const [deleteProviderError, setDeleteProviderError] = useState<string | null>(null);
 
   // Model form
   const [modelForm, setModelForm] = useState({
@@ -108,16 +116,35 @@ export default function ProvidersPage() {
     }
   };
 
-  const setApiKey = async (providerId: string) => {
-    const key = window.prompt(
-      "API key (stored in the OS credential store, never in the database):",
-    );
-    if (key === null) return;
+  const saveApiKey = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!keyProvider || !apiKey.trim()) return;
+    setKeySaving(true);
+    setKeyError(null);
     try {
-      await api.setProviderApiKey(providerId, key);
+      await api.setProviderApiKey(keyProvider.id, apiKey.trim());
+      setApiKey("");
+      setKeyProvider(null);
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setKeyError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setKeySaving(false);
+    }
+  };
+
+  const confirmDeleteProvider = async () => {
+    if (!providerToDelete) return;
+    setProviderDeleting(true);
+    setDeleteProviderError(null);
+    try {
+      await api.deleteProvider(providerToDelete.id);
+      setProviderToDelete(null);
+      await refresh();
+    } catch (e) {
+      setDeleteProviderError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setProviderDeleting(false);
     }
   };
 
@@ -167,7 +194,7 @@ export default function ProvidersPage() {
       )}
 
       {showForm && (
-        <form onSubmit={createProvider} className="mb-6 rounded-md border border-line bg-surface-1 p-4">
+        <form onSubmit={createProvider} noValidate className="mb-6 rounded-md border border-line bg-surface-1 p-4">
           <div className="grid grid-cols-2 gap-3">
             <label className="text-xs text-ink-dim">
               Display name
@@ -249,7 +276,11 @@ export default function ProvidersPage() {
 
                 {/* API key state */}
                 <button
-                  onClick={() => setApiKey(p.id)}
+                  onClick={() => {
+                    setApiKey("");
+                    setKeyError(null);
+                    setKeyProvider(p);
+                  }}
                   title={
                     p.has_api_key
                       ? "Replace API key"
@@ -261,6 +292,7 @@ export default function ProvidersPage() {
                       ? "border-ok/30 bg-ok/10 text-ok"
                       : "border-line bg-base text-ink-faint hover:text-ink",
                   )}
+                  aria-label={p.has_api_key ? `Replace API key for ${p.display_name}` : `Set API key for ${p.display_name}`}
                 >
                   <KeyRound size={12} />
                   {p.has_api_key ? "Key set" : "Set key"}
@@ -296,17 +328,12 @@ export default function ProvidersPage() {
 
                 {p.kind === "custom" && (
                   <button
-                    onClick={async () => {
-                      if (window.confirm(`Delete provider "${p.display_name}" and its models?`)) {
-                        try {
-                          await api.deleteProvider(p.id);
-                          await refresh();
-                        } catch (e) {
-                          setError(e instanceof Error ? e.message : String(e));
-                        }
-                      }
+                    onClick={() => {
+                      setProviderToDelete(p);
+                      setDeleteProviderError(null);
                     }}
                     title="Delete provider"
+                    aria-label={`Delete provider ${p.display_name}`}
                     className="rounded p-1.5 text-ink-faint hover:bg-surface-2 hover:text-danger"
                   >
                     <Trash2 size={14} />
@@ -391,12 +418,14 @@ export default function ProvidersPage() {
                   {/* Add model */}
                   <form
                     onSubmit={(e) => addModel(e, p.id)}
+                    noValidate
                     className="grid grid-cols-[1.2fr_1.2fr_0.8fr_0.8fr_auto] items-end gap-2"
                   >
                     <label className="text-[11px] text-ink-dim">
                       Model ID
                       <input
                         value={modelForm.model_id}
+                        required
                         onChange={(e) =>
                           setModelForm({ ...modelForm, model_id: e.target.value })
                         }
@@ -461,6 +490,51 @@ export default function ProvidersPage() {
           );
         })}
       </ul>
+
+      <Dialog
+        open={keyProvider !== null}
+        title={keyProvider?.has_api_key ? "Replace API key" : "Add API key"}
+        description={keyProvider ? `ENKI stores this key in your operating system's credential store for ${keyProvider.display_name}. The key is never shown again after saving.` : undefined}
+        onClose={() => {
+          setKeyProvider(null);
+          setApiKey("");
+        }}
+      >
+        <form onSubmit={saveApiKey} noValidate className="space-y-4">
+          <label className="block text-sm font-medium" htmlFor="provider-api-key">API key</label>
+          <input
+            id="provider-api-key"
+            type="password"
+            autoComplete="new-password"
+            required
+            data-dialog-focus
+            value={apiKey}
+            onChange={(event) => setApiKey(event.target.value)}
+            placeholder="Paste your API key"
+            className="w-full rounded-md border border-line-strong bg-base px-3 py-2 font-mono text-sm text-ink placeholder:font-sans placeholder:text-ink-faint"
+          />
+          {keyError && <p role="alert" className="text-sm text-danger">{keyError}</p>}
+          <div className="flex justify-end gap-2 border-t border-line pt-4">
+            <button type="button" onClick={() => setKeyProvider(null)} disabled={keySaving} className="rounded-md border border-line px-4 py-2 text-sm text-ink-dim hover:bg-surface-2 disabled:opacity-50">Cancel</button>
+            <button type="submit" disabled={keySaving || !apiKey.trim()} className="rounded-md bg-accent-strong px-4 py-2 text-sm font-medium text-white hover:bg-accent disabled:cursor-not-allowed disabled:opacity-55">{keySaving ? "Saving…" : "Save key"}</button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog
+        open={providerToDelete !== null}
+        title="Delete provider?"
+        description={providerToDelete ? `“${providerToDelete.display_name}”, its configured models, and its saved API key will be deleted from ENKI.` : undefined}
+        onClose={() => setProviderToDelete(null)}
+        footer={(
+          <>
+            <button type="button" onClick={() => setProviderToDelete(null)} disabled={providerDeleting} data-dialog-focus className="rounded-md border border-line px-4 py-2 text-sm text-ink-dim hover:bg-surface-2 disabled:opacity-50">Keep provider</button>
+            <button type="button" onClick={confirmDeleteProvider} disabled={providerDeleting} className="rounded-md bg-danger px-4 py-2 text-sm font-medium text-white hover:brightness-110 disabled:opacity-60">{providerDeleting ? "Deleting…" : "Delete provider"}</button>
+          </>
+        )}
+      >
+        {deleteProviderError && <p role="alert" className="text-sm text-danger">{deleteProviderError}</p>}
+      </Dialog>
     </div>
   );
 }

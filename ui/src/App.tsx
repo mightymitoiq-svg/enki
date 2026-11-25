@@ -3,8 +3,9 @@ import {
   Bot,
   Home,
   Package,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings as SettingsIcon,
-  ShieldCheck,
 } from "lucide-react";
 import HomePage from "./pages/HomePage";
 import ProvidersPage from "./pages/ProvidersPage";
@@ -29,9 +30,38 @@ const NAV_ITEMS: {
 export default function App() {
   const [page, setPage] = useState<PageId>("home");
   const [version, setVersion] = useState<string>("");
+  const [expanded, setExpanded] = useState(() => {
+    try {
+      return window.localStorage.getItem("enki.sidebar.expanded") !== "false";
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
     api.appVersion().then(setVersion).catch(() => setVersion("?"));
+    api.getSettings().then((settings) => {
+      document.documentElement.dataset.theme = settings.theme;
+    }).catch(() => {
+      document.documentElement.dataset.theme = "dark";
+    });
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("enki.sidebar.expanded", String(expanded));
+    } catch {
+      // The layout remains usable when browser storage is unavailable.
+    }
+  }, [expanded]);
+
+  useEffect(() => {
+    const onSettingsSaved = (event: Event) => {
+      const settings = (event as CustomEvent<{ theme: "dark" | "light" }>).detail;
+      if (settings?.theme) document.documentElement.dataset.theme = settings.theme;
+    };
+    window.addEventListener("enki:settings-saved", onSettingsSaved);
+    return () => window.removeEventListener("enki:settings-saved", onSettingsSaved);
   }, []);
 
   // Keyboard navigation: Alt+1..4 switch pages
@@ -51,46 +81,68 @@ export default function App() {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-base">
-      {/* Compact icon navigation */}
+      {/* Workspace navigation */}
       <nav
         aria-label="Primary"
-        className="flex w-14 shrink-0 flex-col items-center gap-1 border-r border-line bg-surface py-3"
+        className={cn(
+          "flex shrink-0 flex-col border-r border-line bg-surface py-4 transition-[width] duration-200",
+          expanded ? "w-60 px-3" : "w-[4.5rem] items-center px-2",
+        )}
       >
-        <div
-          className="mb-3 flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-accent to-violet"
-          aria-label="ENKI"
-        >
-          <span className="select-none font-mono text-[11px] font-bold text-base">
-            E
-          </span>
+        <div className={cn("mb-7 flex items-center", expanded ? "gap-3 px-2" : "justify-center")}>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-accent to-violet">
+            <span className="select-none font-mono text-xs font-bold text-base">E</span>
+          </div>
+          {expanded && (
+            <div className="min-w-0">
+              <div className="text-sm font-semibold tracking-[0.18em]">ENKI</div>
+              <div className="font-mono text-[9px] uppercase tracking-[0.16em] text-ink-faint">Local development</div>
+            </div>
+          )}
         </div>
+        {expanded && <div className="mb-2 px-3 font-mono text-[9px] uppercase tracking-[0.18em] text-ink-faint">Workspace</div>}
         {NAV_ITEMS.map((item, i) => (
           <button
             key={item.id}
             onClick={() => setPage(item.id)}
             title={`${item.label} (Alt+${i + 1})`}
+            aria-label={`${item.label} (Alt+${i + 1})`}
             aria-current={page === item.id ? "page" : undefined}
             className={cn(
-              "group relative flex h-9 w-9 items-center justify-center rounded-md transition-colors",
+              "group relative mb-1 flex h-10 w-full items-center rounded-md transition-colors",
+              expanded ? "gap-3 px-3" : "justify-center",
               page === item.id
                 ? "bg-surface-2 text-ink"
-                : "text-ink-faint hover:bg-surface-1 hover:text-ink-dim",
+                : "text-ink-dim hover:bg-surface-1 hover:text-ink",
             )}
           >
-            <item.icon size={17} strokeWidth={1.8} />
+            <item.icon size={17} strokeWidth={1.8} aria-hidden="true" />
+            {expanded && <span className="text-sm">{item.label}</span>}
+            {expanded && <span className="ml-auto font-mono text-[10px] text-ink-faint">Alt+{i + 1}</span>}
             {page === item.id && (
-              <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r bg-accent" />
+              <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r bg-accent" />
             )}
           </button>
         ))}
-        <div className="mt-auto flex flex-col items-center gap-2">
-          <span
-            className="text-ink-faint"
-            title="Security: project-scoped filesystem access"
+        <div className={cn("mt-auto flex items-center border-t border-line pt-4", expanded ? "justify-between px-2" : "flex-col gap-3")}>
+          {expanded && (
+            <span className="max-w-[9rem] text-[11px] leading-relaxed text-ink-faint">
+              Agent sessions are not available in this build.
+            </span>
+          )}
+          <span className="font-mono text-[10px] text-ink-faint">v{version}</span>
+        </div>
+        <div className={cn("mt-3 flex", expanded ? "justify-end" : "justify-center")}>
+          <button
+            type="button"
+            onClick={() => setExpanded((value) => !value)}
+            aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
+            title={expanded ? "Collapse sidebar" : "Expand sidebar"}
+            aria-expanded={expanded}
+            className="rounded-md p-2 text-ink-dim hover:bg-surface-1 hover:text-ink"
           >
-            <ShieldCheck size={16} strokeWidth={1.8} />
-          </span>
-          <span className="font-mono text-[9px] text-ink-faint">v{version}</span>
+            {expanded ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+          </button>
         </div>
       </nav>
 

@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "ENKI main window: core app capabilities. No shell, fs, or http plugin permissions — backend Rust code performs all privileged operations through validated commands.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:allow-open"]
 }

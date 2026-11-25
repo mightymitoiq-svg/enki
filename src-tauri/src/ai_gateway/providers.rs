@@ -88,11 +88,16 @@ impl ProviderInput {
 }
 
 pub fn validate_url(url: &str) -> Result<()> {
-    let parsed = url::Url::parse(url)
-        .map_err(|_| AppError::InvalidInput(format!("invalid URL: {url}")))?;
+    let parsed =
+        url::Url::parse(url).map_err(|_| AppError::InvalidInput("invalid provider URL".into()))?;
     if !matches!(parsed.scheme(), "http" | "https") {
         return Err(AppError::InvalidInput(
             "only http/https URLs are allowed".into(),
+        ));
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(AppError::InvalidInput(
+            "provider URL must not contain a username or password".into(),
         ));
     }
     Ok(())
@@ -230,9 +235,7 @@ fn map_provider(
     let params_json: String = r.get(6)?;
     let id: String = r.get(0)?;
     Ok(Provider {
-        has_api_key: keyring
-            .map(|k| k.has_credential(&id))
-            .unwrap_or(false),
+        has_api_key: keyring.map(|k| k.has_credential(&id)).unwrap_or(false),
         id,
         kind: r.get(1)?,
         display_name: r.get(2)?,

@@ -1,4 +1,4 @@
-use super::{EngineCapabilities, EngineInfo, EngineStatus, AgentEngineAdapter};
+use super::{AgentEngineAdapter, EngineCapabilities, EngineInfo, EngineStatus};
 use std::process::Command;
 
 /// Adapter for the OpenCode CLI (https://opencode.ai — SST project).
@@ -29,7 +29,11 @@ impl OpenCodeAdapter {
         if s.is_empty() {
             // Some CLIs print to stderr.
             let e = String::from_utf8_lossy(&out.stderr).trim().to_string();
-            if e.is_empty() { None } else { Some(e) }
+            if e.is_empty() {
+                None
+            } else {
+                Some(e)
+            }
         } else {
             Some(s)
         }
@@ -57,7 +61,6 @@ impl AgentEngineAdapter for OpenCodeAdapter {
 
     fn discover(&self) -> EngineInfo {
         let version = Self::probe_version();
-        let installed = version.is_some();
         EngineInfo {
             id: self.id().into(),
             display_name: self.display_name().into(),
@@ -66,25 +69,17 @@ impl AgentEngineAdapter for OpenCodeAdapter {
                 Some(_) => EngineStatus::Available,
                 None => EngineStatus::NotInstalled,
             },
-            // Capabilities are only reported as available when the engine itself
-            // is present. These reflect what the OpenCode CLI exposes today;
-            // streaming/session integration is milestone 2 and the adapter says so.
+            // Finding the CLI proves only that it is installed. ENKI does not yet
+            // implement the session and tool integrations represented here.
             capabilities: EngineCapabilities {
-                streaming: installed,
-                tool_calls: installed,
-                file_editing: installed,
-                terminal_execution: installed,
-                session_persistence: installed,
-                interrupt: installed,
+                streaming: false,
+                tool_calls: false,
+                file_editing: false,
+                terminal_execution: false,
+                session_persistence: false,
+                interrupt: false,
                 multi_agent: false,
-                extras: [
-                    ("headless_mode", installed),
-                    ("tui_mode", installed),
-                    ("mcp_support", installed),
-                ]
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect(),
+                extras: Default::default(),
             },
             detected_version: version.clone(),
             notes: vec![
@@ -95,8 +90,8 @@ impl AgentEngineAdapter for OpenCodeAdapter {
                         .map(|v| format!(" — detected {v}"))
                         .unwrap_or_else(|| " (not found)".into())
                 ),
-                "Chat/session streaming integration lands in milestone 2; \
-                 this adapter currently reports discovery only."
+                "ENKI can detect OpenCode, but does not yet run or control sessions. \
+                 Capabilities will appear when the ENKI integration is implemented."
                     .into(),
             ],
         }

@@ -17,7 +17,7 @@
   /* Text */
   --color-ink: #e8eaf2;
   --color-ink-dim: #9aa1b5;
-  --color-ink-faint: #5d6478;
+  --color-ink-faint: #8992a7;
 
   /* Accents — restrained electric blue / violet */
   --color-accent: #5b8cff;
@@ -35,6 +35,32 @@
   --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
 }
 
+/* The runtime values below are documented in DESIGN.md; @theme remains their owner. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-base: #f3f5f9;
+  --color-surface: #ffffff;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #e8edf5;
+  --color-overlay: #dce3ee;
+  --color-line: #d6deea;
+  --color-line-strong: #b7c3d5;
+  --color-ink: #172033;
+  --color-ink-dim: #46546d;
+  --color-ink-faint: #5c6a82;
+  --color-accent: #2862dc;
+  --color-accent-strong: #1f51c3;
+  --color-violet: #7251d2;
+  --color-accent-ink: #214b9d;
+  --color-ok: #13734f;
+  --color-warn: #805500;
+  --color-danger: #b3293c;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
 html,
 body,
 #root {
@@ -44,6 +70,11 @@ body,
 body {
   @apply bg-base text-ink font-sans antialiased;
   font-size: 14px;
+}
+
+html {
+  scrollbar-color: var(--color-line-strong) var(--color-base);
+  scrollbar-width: thin;
 }
 
 /* Subtle top glow used on hero surfaces — kept faint on purpose */
@@ -62,8 +93,17 @@ body {
   border-radius: 5px;
   border: 2px solid var(--color-base);
 }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--color-base);
+}
+
+@media (forced-colors: active) {
+  ::-webkit-scrollbar-thumb {
+    border: 0;
+  }
 }
 
 /* Focus visibility for keyboard accessibility */
