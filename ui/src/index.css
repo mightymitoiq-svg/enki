@@ -17,7 +17,10 @@
   /* Text */
   --color-ink: #e8eaf2;
   --color-ink-dim: #9aa1b5;
-  --color-ink-faint: #5d6478;
+  /* WCAG AA: 4.67:1 against --color-base (#5d6478 was 3.33:1, below the
+     4.5:1 small-text minimum). Value selected to keep the "faint ink"
+     hierarchy while passing AA in the dark theme. */
+  --color-ink-faint: #737b93;
 
   /* Accents — restrained electric blue / violet */
   --color-accent: #5b8cff;
@@ -50,7 +53,9 @@ html.light {
 
   --color-ink: #191d2b;
   --color-ink-dim: #4b5268;
-  --color-ink-faint: #7b8299;
+  /* WCAG AA: 4.59:1 against the light base (#7b8299 was 3.51:1, below the
+     4.5:1 small-text minimum). */
+  --color-ink-faint: #686f85;
 
   --color-accent: #3d6ef5;
   --color-accent-strong: #2f5ae0;
