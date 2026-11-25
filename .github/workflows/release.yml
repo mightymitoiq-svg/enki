@@ -23,7 +23,7 @@ jobs:
           - os: ubuntu-latest # deb + rpm + AppImage
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install Linux system dependencies (Tauri)
         if: runner.os == 'Linux'
@@ -31,7 +31,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@39370e3970a06d0a1103b67bcf204362a7f3e2fb # v4.1.0
         with:
           node-version: 22
           cache: npm
@@ -39,9 +39,9 @@ jobs:
             package-lock.json
             ui/package-lock.json
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@2201cc584a476d1b508be977bbe4b7d1c7a52e9c # v2.9.3
         with:
           workspaces: src-tauri
 
@@ -58,7 +58,7 @@ jobs:
         run: cargo test
 
       - name: Build app and publish release artifacts
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@fce9c6108b31ea247710505d3aaaa893ee6768d4 # v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

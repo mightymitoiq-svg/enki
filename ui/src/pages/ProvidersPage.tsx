@@ -34,6 +34,14 @@ export default function ProvidersPage() {
     Record<string, ConnectionTestResult>
   >({});
   const [testing, setTesting] = useState<string | null>(null);
+  // Per-provider API key dialog + save feedback
+  const [keyDialogFor, setKeyDialogFor] = useState<string | null>(null);
+  const [keyDraft, setKeyDraft] = useState("");
+  const [keyStatus, setKeyStatus] = useState<
+    Record<string, "idle" | "saving" | "saved" | "error">
+  >({});
+  // Delete confirmation dialog (replaces window.confirm)
+  const [deleteTarget, setDeleteTarget] = useState<Provider | null>(null);
 
   // Custom provider form
   const [showForm, setShowForm] = useState(false);
@@ -108,16 +116,23 @@ export default function ProvidersPage() {
     }
   };
 
-  const setApiKey = async (providerId: string) => {
-    const key = window.prompt(
-      "API key (stored in the OS credential store, never in the database):",
-    );
-    if (key === null) return;
+  const setApiKey = async (providerId: string, key: string) => {
+    setKeyStatus((prev) => ({ ...prev, [providerId]: "saving" }));
     try {
       await api.setProviderApiKey(providerId, key);
       await refresh();
+      setKeyStatus((prev) => ({ ...prev, [providerId]: "saved" }));
+      setTimeout(
+        () => setKeyStatus((prev) => ({ ...prev, [providerId]: "idle" })),
+        1500,
+      );
     } catch (e) {
+      setKeyStatus((prev) => ({ ...prev, [providerId]: "error" }));
       setError(e instanceof Error ? e.message : String(e));
+      setTimeout(
+        () => setKeyStatus((prev) => ({ ...prev, [providerId]: "idle" })),
+        2500,
+      );
     }
   };
 
@@ -249,7 +264,10 @@ export default function ProvidersPage() {
 
                 {/* API key state */}
                 <button
-                  onClick={() => setApiKey(p.id)}
+                  onClick={() => {
+                    setKeyDraft("");
+                    setKeyDialogFor(p.id);
+                  }}
                   title={
                     p.has_api_key
                       ? "Replace API key"
@@ -263,7 +281,15 @@ export default function ProvidersPage() {
                   )}
                 >
                   <KeyRound size={12} />
-                  {p.has_api_key ? "Key set" : "Set key"}
+                  {keyStatus[p.id] === "saving"
+                    ? "Saving…"
+                    : keyStatus[p.id] === "saved"
+                      ? "Saved ✓"
+                      : keyStatus[p.id] === "error"
+                        ? "Failed"
+                        : p.has_api_key
+                          ? "Key set"
+                          : "Set key"}
                 </button>
 
                 {/* Test connection */}
@@ -296,16 +322,7 @@ export default function ProvidersPage() {
 
                 {p.kind === "custom" && (
                   <button
-                    onClick={async () => {
-                      if (window.confirm(`Delete provider "${p.display_name}" and its models?`)) {
-                        try {
-                          await api.deleteProvider(p.id);
-                          await refresh();
-                        } catch (e) {
-                          setError(e instanceof Error ? e.message : String(e));
-                        }
-                      }
-                    }}
+                    onClick={() => setDeleteTarget(p)}
                     title="Delete provider"
                     className="rounded p-1.5 text-ink-faint hover:bg-surface-2 hover:text-danger"
                   >
@@ -461,6 +478,113 @@ export default function ProvidersPage() {
           );
         })}
       </ul>
+
+      {/* API key dialog — masked input, no window.prompt */}
+      {keyDialogFor && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Set API key"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setKeyDialogFor(null);
+          }}
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const id = keyDialogFor;
+              setKeyDialogFor(null);
+              setApiKey(id, keyDraft);
+            }}
+            className="w-full max-w-md rounded-lg border border-line bg-surface-1 p-5"
+          >
+            <h2 className="text-sm font-semibold">
+              {providers.find((p) => p.id === keyDialogFor)?.has_api_key
+                ? "Replace API key"
+                : "Set API key"}
+            </h2>
+            <p className="mt-1 text-xs text-ink-faint">
+              Stored in the OS credential store — never in the database or
+              logs. Only a key-presence indicator is kept.
+            </p>
+            <input
+              type="password"
+              autoFocus
+              autoComplete="off"
+              value={keyDraft}
+              onChange={(e) => setKeyDraft(e.target.value)}
+              placeholder="sk-…"
+              className="mt-3 w-full rounded-md border border-line bg-base px-3 py-1.5 font-mono text-sm text-ink"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setKeyDialogFor(null)}
+                className="rounded-md border border-line px-3 py-1.5 text-xs text-ink-dim hover:text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!keyDraft.trim()}
+                className="rounded-md bg-accent-strong px-4 py-1.5 text-xs font-medium text-white hover:bg-accent disabled:opacity-50"
+              >
+                Save key
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Delete provider confirmation — no window.confirm */}
+      {deleteTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Delete provider"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteTarget(null);
+          }}
+        >
+          <div className="w-full max-w-md rounded-lg border border-line bg-surface-1 p-5">
+            <h2 className="text-sm font-semibold">
+              Delete provider “{deleteTarget.display_name}”?
+            </h2>
+            <p className="mt-1 text-xs text-ink-faint">
+              Its configured models are removed too. The API key stays in the
+              OS credential store until you clear it there.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setDeleteTarget(null)}
+                className="rounded-md border border-line px-3 py-1.5 text-xs text-ink-dim hover:text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const id = deleteTarget.id;
+                  setDeleteTarget(null);
+                  try {
+                    await api.deleteProvider(id);
+                    await refresh();
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : String(e));
+                  }
+                }}
+                className="rounded-md bg-danger px-4 py-1.5 text-xs font-medium text-white hover:opacity-90"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -95,7 +95,28 @@ pub fn validate_url(url: &str) -> Result<()> {
             "only http/https URLs are allowed".into(),
         ));
     }
+    // Transport policy: credentials are attached to requests against this URL,
+    // so non-local endpoints must use HTTPS. Loopback (Ollama, LM Studio,
+    // local gateways) never leaves the machine and is exempt.
+    if parsed.scheme() == "http" && !is_loopback_host(parsed.host_str()) {
+        return Err(AppError::InvalidInput(
+            "insecure URL: HTTPS is required for non-local providers \
+             (http is allowed only for localhost/127.0.0.1/::1)"
+                .into(),
+        ));
+    }
     Ok(())
+}
+
+/// True for loopback hosts that never leave the machine.
+pub fn is_loopback_host(host: Option<&str>) -> bool {
+    match host {
+        Some(h) => {
+            let h = h.trim_end_matches('.').to_ascii_lowercase();
+            h == "localhost" || h == "127.0.0.1" || h == "[::1]" || h == "::1"
+        }
+        None => false,
+    }
 }
 
 /// Payload to create or update a model entry.

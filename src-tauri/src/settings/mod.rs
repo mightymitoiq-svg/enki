@@ -4,28 +4,60 @@ use serde::{Deserialize, Serialize};
 
 /// All persisted application settings, with defaults.
 /// Frontend Zod schema mirrors this shape (see ui/src/lib/settingsSchema.ts).
+///
+/// Forward compatibility: every field carries `#[serde(default)]` so a row
+/// saved by an older ENKI version (missing fields added later) deserializes
+/// with defaults instead of failing as "corrupt". `load` additionally merges
+/// with `Self::default()` so empty strings written by older builds fall back
+/// to current defaults.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AppSettings {
     /// "dark" | "light" — ENKI is dark-first; light exists for accessibility.
+    #[serde(default = "default_theme")]
     pub theme: String,
     /// Accent family: "electric" (blue/violet) — reserved for future options.
+    #[serde(default = "default_accent")]
     pub accent: String,
     /// Editor font size in px.
+    #[serde(default = "default_editor_font_size")]
     pub editor_font_size: i64,
     /// Show the agent "thinking" phase in the conversation view.
+    #[serde(default = "default_true")]
     pub show_agent_thoughts: bool,
     /// Ask before the agent runs any terminal command.
+    #[serde(default = "default_true")]
     pub confirm_terminal_commands: bool,
     /// Ask before the agent writes/patches files outside an approved batch.
+    #[serde(default = "default_true")]
     pub confirm_file_writes: bool,
     /// Allow the agent to read files outside the project root (still audited).
+    #[serde(default)]
     pub allow_reads_outside_workspace: bool,
     /// Default provider id (empty = not chosen yet).
+    #[serde(default)]
     pub default_provider_id: String,
     /// Default model id (empty = not chosen yet).
+    #[serde(default)]
     pub default_model_id: String,
     /// Monthly budget in USD cents for gateway usage; 0 = unlimited.
+    #[serde(default)]
     pub monthly_budget_usd_cents: i64,
+}
+
+fn default_theme() -> String {
+    "dark".into()
+}
+
+fn default_accent() -> String {
+    "electric".into()
+}
+
+fn default_editor_font_size() -> i64 {
+    14
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for AppSettings {
@@ -155,5 +187,42 @@ mod tests {
         let loaded = AppSettings::load(&conn).unwrap();
         assert_eq!(loaded.editor_font_size, 16);
         assert_eq!(loaded.monthly_budget_usd_cents, 2000);
+    }
+
+    #[test]
+    fn loads_settings_row_from_older_version() {
+        // A row saved by an older build that lacked fields added later must
+        // deserialize with defaults, not fail as corrupt JSON.
+        let conn = mem();
+        conn.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, datetime('now'))",
+            params![
+                AppSettings::KEY,
+                r#"{"theme":"dark","accent":"electric","editor_font_size":13,
+                    "show_agent_thoughts":true,"confirm_terminal_commands":false,
+                    "confirm_file_writes":true}"#
+            ],
+        )
+        .unwrap();
+        let s = AppSettings::load(&conn).unwrap();
+        assert_eq!(s.theme, "dark");
+        assert_eq!(s.editor_font_size, 13);
+        assert!(!s.confirm_terminal_commands, "saved value must survive");
+        // Fields the old row never had:
+        assert!(!s.allow_reads_outside_workspace, "serde default");
+        assert_eq!(s.monthly_budget_usd_cents, 0, "serde default");
+        assert_eq!(s.default_provider_id, "", "serde default");
+    }
+
+    #[test]
+    fn empty_theme_from_old_row_falls_back_to_default() {
+        let conn = mem();
+        conn.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?1, ?2, datetime('now'))",
+            params![AppSettings::KEY, r#"{"theme":""}"#],
+        )
+        .unwrap();
+        let s = AppSettings::load(&conn).unwrap();
+        assert_eq!(s.theme, "dark", "empty theme from an old row merges forward");
     }
 }

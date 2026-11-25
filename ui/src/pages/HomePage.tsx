@@ -69,16 +69,26 @@ export default function HomePage({ onNavigate }: Props) {
   return (
     <div className="mx-auto max-w-5xl px-8 py-10">
       <header className="enki-gradient mb-8 rounded-lg border border-line p-8">
-        <h1 className="text-xl font-semibold tracking-tight">
-          ENKI
-          <span className="ml-3 align-middle font-mono text-xs font-normal text-ink-faint">
-            local-first AI development
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-xl font-semibold tracking-tight">
+            ENKI
+            <span className="ml-3 align-middle font-mono text-xs font-normal text-ink-faint">
+              local-first AI development
+            </span>
+          </h1>
+          <span className="shrink-0 rounded-full border border-warn/30 bg-warn/10 px-3 py-1 text-[11px] font-medium text-warn">
+            Milestone 1 · setup only
           </span>
-        </h1>
+        </div>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-dim">
           Private coding workspace: agents, models, and your projects — all on
           your machine. Credentials stay in the OS credential store; agent file
           access is scoped to each project.
+        </p>
+        <p className="mt-2 max-w-xl text-xs leading-relaxed text-ink-faint">
+          This release configures providers and checks installed agent
+          engines. The coding workspace — conversation, editor, terminal —
+          opens in the next milestone.
         </p>
       </header>
 
@@ -167,7 +177,8 @@ export default function HomePage({ onNavigate }: Props) {
                 <button
                   onClick={() => removeProject(p.id, p.name)}
                   title="Remove project"
-                  className="ml-2 rounded p-1.5 text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-danger group-hover:opacity-100"
+                  aria-label={`Remove project ${p.name}`}
+                  className="ml-2 rounded p-1.5 text-ink-faint opacity-0 transition-opacity hover:bg-surface-2 hover:text-danger group-hover:opacity-100 focus-visible:opacity-100 focus-within:opacity-100"
                 >
                   <Trash2 size={14} />
                 </button>

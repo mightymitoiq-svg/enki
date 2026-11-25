@@ -85,7 +85,14 @@ fn build_models_request(
         Protocol::GoogleGenerative => {
             url.push_str("/models");
             if let Some(k) = api_key {
-                url.push_str(&format!("?key={k}"));
+                // Query values must be percent-encoded: raw '&', '#', '+', '='
+                // in a key would corrupt or truncate the credential. The `url`
+                // crate handles exactly this for query pairs.
+                let mut u = url::Url::parse(&url)
+                    .map_err(|e| AppError::Internal(format!("invalid provider URL: {e}")))?;
+                u.query_pairs_mut()
+                    .append_pair("key", k);
+                url = u.into();
             }
         }
         Protocol::Ollama => {
@@ -105,14 +112,36 @@ fn http_get_json(url: &str, headers: &[(String, String)]) -> Result<serde_json::
     for (k, v) in headers {
         req = req.set(k, v);
     }
-    let resp = req
-        .call()
-        .map_err(|e| AppError::Network(format!("{e}")))?;
+    let resp = req.call().map_err(|e| AppError::Network(scrub(&format!("{e}"))))?;
     let body = resp
         .into_string()
-        .map_err(|e| AppError::Network(format!("failed to read response: {e}")))?;
+        .map_err(|e| AppError::Network(scrub(&format!("failed to read response: {e}"))))?;
     serde_json::from_str(&body)
-        .map_err(|e| AppError::Network(format!("invalid JSON from endpoint: {e}")))
+        .map_err(|e| AppError::Network(scrub(&format!("invalid JSON from endpoint: {e}"))))
+}
+
+/// Remove credential material from error text. The Google protocol puts the
+/// key in the URL (so transport errors echo it back); header-based protocols
+/// never leak it, but scrubbing both costs nothing.
+fn scrub(msg: &str) -> String {
+    let mut out = msg.to_string();
+    // key=... in URLs (Google protocol)
+    if let Some(start) = out.find("key=") {
+        let end = out[start..]
+            .find(|c| c == '&' || c == ' ' || c == '"' || c == '\'')
+            .map(|i| start + i)
+            .unwrap_or(out.len());
+        out.replace_range(start..end, "key=[redacted]");
+    }
+    // Bearer tokens echoed in headers
+    if let Some(start) = out.find("Bearer ") {
+        let end = out[start..]
+            .find(|c| c == ' ' || c == '"' || c == '\'')
+            .map(|i| start + i)
+            .unwrap_or(out.len());
+        out.replace_range(start..end, "Bearer [redacted]");
+    }
+    out
 }
 
 fn count_models(protocol: &Protocol, body: &serde_json::Value) -> Option<usize> {
@@ -173,5 +202,55 @@ mod tests {
         assert_eq!(count_models(&Protocol::Ollama, &ollama_body), Some(1));
         let empty = serde_json::json!({});
         assert_eq!(count_models(&Protocol::OpenaiResponses, &empty), None);
+    }
+
+    #[test]
+    fn google_key_is_percent_encoded() {
+        // A key with URL-significant characters must survive round-tripping.
+        let (url, headers) = build_models_request(
+            &Protocol::GoogleGenerative,
+            "https://generativelanguage.googleapis.com/v1beta",
+            Some("a&b=c#d+e f"),
+        )
+        .unwrap();
+        assert!(headers.is_empty(), "Google keys ride in the URL, not headers");
+        assert_eq!(
+            url,
+            "https://generativelanguage.googleapis.com/v1beta/models?key=a%26b%3Dc%23d%2Be+f"
+        );
+        // And parse back to the original key.
+        let parsed = url::Url::parse(&url).unwrap();
+        assert_eq!(
+            parsed.query_pairs().find(|(k, _)| k == "key").map(|(_, v)| v.to_string()),
+            Some("a&b=c#d+e f".into())
+        );
+    }
+
+    #[test]
+    fn transport_policy_blocks_remote_http() {
+        use super::super::providers::validate_url;
+        assert!(validate_url("https://api.example.com/v1").is_ok());
+        // Loopback http is allowed (Ollama, LM Studio, local gateways).
+        assert!(validate_url("http://localhost:11434").is_ok());
+        assert!(validate_url("http://127.0.0.1:1234/v1").is_ok());
+        assert!(validate_url("http://[::1]:11434").is_ok());
+        // Anything else over http is rejected — the request would carry the
+        // API key without transport encryption.
+        assert!(validate_url("http://api.example.com/v1").is_err());
+        assert!(validate_url("http://192.168.1.5:8080/v1").is_err());
+        assert!(validate_url("http://myserver.local/v1").is_err());
+        assert!(validate_url("ftp://example.com").is_err());
+    }
+
+    #[test]
+    fn error_text_is_scrubbed_of_credentials() {
+        let scrubbed = scrub("http://host/models?key=SECRET&x=1: connection refused");
+        assert!(!scrubbed.contains("SECRET"));
+        assert!(scrubbed.contains("key=[redacted]"));
+        let scrubbed = scrub("401 Unauthorized: Bearer sk-live-123 rejected");
+        assert!(!scrubbed.contains("sk-live-123"));
+        assert!(scrubbed.contains("Bearer [redacted]"));
+        // Message without credentials passes through untouched.
+        assert_eq!(scrub("timed out"), "timed out");
     }
 }

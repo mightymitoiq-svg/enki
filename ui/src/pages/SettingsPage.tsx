@@ -24,6 +24,8 @@ export default function SettingsPage() {
       const parsed = appSettingsSchema.parse(next); // validate before sending
       const saved = await api.saveSettings(parsed);
       setSettings(saved);
+      // Live theme switch: no restart needed for the palette to change.
+      document.documentElement.classList.toggle("light", saved.theme === "light");
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 1500);
     } catch (e) {

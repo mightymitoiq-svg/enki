@@ -66,21 +66,25 @@ impl AgentEngineAdapter for OpenCodeAdapter {
                 Some(_) => EngineStatus::Available,
                 None => EngineStatus::NotInstalled,
             },
-            // Capabilities are only reported as available when the engine itself
-            // is present. These reflect what the OpenCode CLI exposes today;
-            // streaming/session integration is milestone 2 and the adapter says so.
+            // Capability contract: `capabilities` reports what THIS ADAPTER
+            // implements today, not what the engine itself can do. The
+            // installed CLI's own feature set is reported separately under
+            // `engine_*` extras so the UI never offers chat features the
+            // ENKI side does not actually implement yet.
             capabilities: EngineCapabilities {
-                streaming: installed,
-                tool_calls: installed,
-                file_editing: installed,
-                terminal_execution: installed,
-                session_persistence: installed,
-                interrupt: installed,
+                streaming: false,        // milestone 2 (session event streaming)
+                tool_calls: false,       // milestone 2
+                file_editing: false,     // milestone 2
+                terminal_execution: false, // milestone 2
+                session_persistence: false, // milestone 2
+                interrupt: false,        // milestone 2
                 multi_agent: false,
                 extras: [
-                    ("headless_mode", installed),
-                    ("tui_mode", installed),
-                    ("mcp_support", installed),
+                    // What the installed OpenCode CLI itself exposes.
+                    ("engine_headless_mode", installed),
+                    ("engine_tui_mode", installed),
+                    ("engine_mcp_support", installed),
+                    ("engine_discovery", installed),
                 ]
                 .into_iter()
                 .map(|(k, v)| (k.to_string(), v))
@@ -97,6 +101,10 @@ impl AgentEngineAdapter for OpenCodeAdapter {
                 ),
                 "Chat/session streaming integration lands in milestone 2; \
                  this adapter currently reports discovery only."
+                    .into(),
+                "`engine_*` extras describe the installed CLI, not working \
+                 ENKI features; all adapter capabilities are false until \
+                 the milestone 2 integration ships."
                     .into(),
             ],
         }

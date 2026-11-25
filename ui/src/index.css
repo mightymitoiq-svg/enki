@@ -35,6 +35,33 @@
   --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
 }
 
+/* Light theme: overrides the custom properties above on the root element.
+   Every utility that references them (bg-base, text-ink, border-line, …)
+   follows automatically. Applied by App.tsx from the persisted theme setting. */
+html.light {
+  --color-base: #f4f5f9;
+  --color-surface: #ffffff;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #eceef4;
+  --color-overlay: #e2e5ee;
+
+  --color-line: #d8dce6;
+  --color-line-strong: #c3c9d8;
+
+  --color-ink: #191d2b;
+  --color-ink-dim: #4b5268;
+  --color-ink-faint: #7b8299;
+
+  --color-accent: #3d6ef5;
+  --color-accent-strong: #2f5ae0;
+  --color-violet: #7b5cf0;
+  --color-accent-ink: #1e3a8a;
+
+  --color-ok: #12905c;
+  --color-warn: #a97407;
+  --color-danger: #d3364a;
+}
+
 html,
 body,
 #root {
