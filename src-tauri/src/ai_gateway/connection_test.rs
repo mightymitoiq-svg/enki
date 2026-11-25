@@ -13,29 +13,38 @@ pub struct ConnectionTestResult {
     pub models_discovered: Option<usize>,
 }
 
-/// Test connectivity to a provider by hitting its model-listing endpoint.
-/// This only verifies reachability + authentication, never that a model exists.
-pub fn test_connection(
+/// Read a provider's endpoint configuration (protocol + base URL).
+/// Split from the network call so the caller can release the database lock
+/// before any HTTP traffic: a slow provider endpoint must not block unrelated
+/// database operations (architecture review, backend concurrency).
+pub fn load_provider_endpoint(
     conn: &Connection,
-    keyring: &dyn CredentialStore,
     provider_id: &str,
+) -> Result<(Protocol, String)> {
+    conn.query_row(
+        "SELECT protocol, COALESCE(base_url, '') FROM providers WHERE id = ?1",
+        rusqlite::params![provider_id],
+        |r| {
+            let p: String = r.get(0)?;
+            Ok((
+                serde_json::from_str(&p).unwrap_or(Protocol::OpenaiCompletions),
+                r.get(1)?,
+            ))
+        },
+    )
+    .map_err(|e| match e {
+        rusqlite::Error::QueryReturnedNoRows => AppError::NotFound(format!("provider {provider_id}")),
+        other => other.into(),
+    })
+}
+
+/// Execute the connectivity test. Must be called WITHOUT any database lock held.
+/// This only verifies reachability + authentication, never that a model exists.
+pub fn run_test(
+    protocol: &Protocol,
+    base_url: &str,
+    api_key: Option<&str>,
 ) -> Result<ConnectionTestResult> {
-    let (protocol, base_url): (Protocol, String) = conn
-        .query_row(
-            "SELECT protocol, COALESCE(base_url, '') FROM providers WHERE id = ?1",
-            rusqlite::params![provider_id],
-            |r| {
-                let p: String = r.get(0)?;
-                Ok((
-                    serde_json::from_str(&p).unwrap_or(Protocol::OpenaiCompletions),
-                    r.get(1)?,
-                ))
-            },
-        )
-        .map_err(|e| match e {
-            rusqlite::Error::QueryReturnedNoRows => AppError::NotFound(format!("provider {provider_id}")),
-            other => other.into(),
-        })?;
     if base_url.is_empty() {
         return Ok(ConnectionTestResult {
             ok: false,
@@ -43,17 +52,28 @@ pub fn test_connection(
             models_discovered: None,
         });
     }
-    validate_url(&base_url)?;
-    let api_key = keyring.get_credential(provider_id)?;
-
-    let (url, headers) = build_models_request(&protocol, &base_url, api_key.as_deref())?;
+    validate_url(base_url)?;
+    let (url, headers) = build_models_request(protocol, base_url, api_key)?;
     let response = http_get_json(&url, &headers)?;
-    let count = count_models(&protocol, &response);
+    let count = count_models(protocol, &response);
     Ok(ConnectionTestResult {
         ok: true,
         detail: format!("model listing returned 200 ({})", summarize_status(&response)),
         models_discovered: count,
     })
+}
+
+/// Combined form for tests and headless use: read config, fetch the key, run.
+/// Production commands use `load_provider_endpoint` + `run_test` separately so
+/// the database lock is held only for the two short reads.
+pub fn test_connection(
+    conn: &Connection,
+    keyring: &dyn CredentialStore,
+    provider_id: &str,
+) -> Result<ConnectionTestResult> {
+    let (protocol, base_url) = load_provider_endpoint(conn, provider_id)?;
+    let api_key = keyring.get_credential(provider_id)?;
+    run_test(&protocol, &base_url, api_key.as_deref())
 }
 
 fn summarize_status(_r: &serde_json::Value) -> &'static str {
@@ -102,11 +122,7 @@ fn build_models_request(
     Ok((url, headers))
 }
 
-/// Minimal HTTP GET using std TcpStream (http only after validation) or ureq-like
-/// approach. To keep dependencies lean we shell out nothing and use a tiny
-/// hand-rolled HTTP client over TLS via `native-tls`? That is heavy — instead we
-/// use the `tauri` ecosystem standard: `reqwest` is common but pulls many deps.
-/// Decision (see DECISIONS.md #4): use `ureq` — small, blocking, rustls.
+/// Minimal HTTP GET using `ureq` — small, blocking, rustls (DECISIONS.md #4).
 fn http_get_json(url: &str, headers: &[(String, String)]) -> Result<serde_json::Value> {
     let mut req = ureq::get(url);
     for (k, v) in headers {

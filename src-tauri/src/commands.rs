@@ -208,13 +208,24 @@ fn delete_provider_api_key(state: State<'_, AppState>, provider_id: String) -> R
     )
 }
 
+/// Test provider connectivity. The database lock is held only for the config
+/// read and the audit write; the HTTP request runs without it so a slow
+/// provider endpoint cannot block unrelated database operations.
 #[tauri::command]
 fn test_provider_connection(
     state: State<'_, AppState>,
     provider_id: String,
 ) -> Result<ConnectionTestResult> {
+    // 1. Read provider configuration while holding the lock, then release.
+    let (protocol, base_url) = {
+        let conn = state.conn.lock().unwrap();
+        connection_test::load_provider_endpoint(&conn, &provider_id)?
+    };
+    // 2. Network call with no database lock held.
+    let api_key = state.keyring.get_credential(&provider_id)?;
+    let result = connection_test::run_test(&protocol, &base_url, api_key.as_deref())?;
+    // 3. Reacquire the lock only to persist the audit event.
     let conn = state.conn.lock().unwrap();
-    let result = connection_test::test_connection(&conn, &state.keyring, &provider_id)?;
     audit::log(
         &conn,
         "gateway",
