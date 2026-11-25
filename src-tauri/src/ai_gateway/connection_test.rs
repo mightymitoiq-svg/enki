@@ -133,11 +133,14 @@ fn scrub(msg: &str) -> String {
             .unwrap_or(out.len());
         out.replace_range(start..end, "key=[redacted]");
     }
-    // Bearer tokens echoed in headers
+    // Bearer tokens echoed in headers — the search for the token's end must
+    // start after the "Bearer " prefix, otherwise the prefix's own trailing
+    // space terminates it and the token survives.
     if let Some(start) = out.find("Bearer ") {
-        let end = out[start..]
+        let from = start + "Bearer ".len();
+        let end = out[from..]
             .find(|c| c == ' ' || c == '"' || c == '\'')
-            .map(|i| start + i)
+            .map(|i| from + i)
             .unwrap_or(out.len());
         out.replace_range(start..end, "Bearer [redacted]");
     }
