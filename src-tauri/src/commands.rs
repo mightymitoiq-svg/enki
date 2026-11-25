@@ -1,8 +1,8 @@
+use crate::agent_runtime::{self, EngineInfo};
 use crate::ai_gateway::catalog;
 use crate::ai_gateway::connection_test::{self, ConnectionTestResult};
 use crate::ai_gateway::credentials::{CredentialStore, OsCredentialStore};
 use crate::ai_gateway::providers::{self, Model, ModelInput, Provider, ProviderInput};
-use crate::agent_runtime::{self, EngineInfo};
 use crate::audit;
 use crate::core::{AppError, AppPaths, Result};
 use crate::settings::AppSettings;
@@ -177,7 +177,11 @@ fn set_default_model(state: State<'_, AppState>, model_id: String) -> Result<()>
 /// Store a provider API key in the OS credential store. The key never touches
 /// the database, logs, or the frontend beyond this call.
 #[tauri::command]
-fn set_provider_api_key(state: State<'_, AppState>, provider_id: String, api_key: String) -> Result<()> {
+fn set_provider_api_key(
+    state: State<'_, AppState>,
+    provider_id: String,
+    api_key: String,
+) -> Result<()> {
     if api_key.len() > 4096 {
         return Err(AppError::InvalidInput("API key too long".into()));
     }
@@ -213,8 +217,14 @@ fn test_provider_connection(
     state: State<'_, AppState>,
     provider_id: String,
 ) -> Result<ConnectionTestResult> {
+    let (protocol, base_url) = {
+        let conn = state.conn.lock().unwrap();
+        let provider = providers::get_provider(&conn, &provider_id, None)?;
+        (provider.protocol, provider.base_url.unwrap_or_default())
+    };
+    let result =
+        connection_test::test_connection_for(&protocol, &base_url, &state.keyring, &provider_id)?;
     let conn = state.conn.lock().unwrap();
-    let result = connection_test::test_connection(&conn, &state.keyring, &provider_id)?;
     audit::log(
         &conn,
         "gateway",
@@ -285,6 +295,7 @@ pub fn run() -> Result<()> {
     let state = AppState::from_default_dir()?;
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             get_settings,
@@ -332,7 +343,11 @@ mod tests {
         let (state, root) = test_state();
         let conn = state.conn.lock().unwrap();
         let n: i64 = conn
-            .query_row("SELECT COUNT(*) FROM providers WHERE kind = 'builtin'", [], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM providers WHERE kind = 'builtin'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(n, 8);
         drop(conn);

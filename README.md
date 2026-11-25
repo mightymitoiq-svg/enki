@@ -8,7 +8,8 @@ Private, local-first AI development platform for Windows (Tauri 2 + Rust + React
 - [x] Provider/model manager backend (custom OpenAI-compatible providers, OS keyring credentials)
 - [x] Agent runtime adapter interface + OpenCode discovery (real `opencode --version` probe)
 - [x] Project-scoped filesystem security boundary + audit log
-- [x] React UI (dark-first design system, navigation, Home/Providers/Agents/Settings)
+- [x] React UI (dark/light themes, collapsible navigation, Home/Providers/Agents/Settings)
+- [x] Native project folder picker and app-owned API-key/destructive-action dialogs
 - [x] CI release pipeline (Windows MSI/NSIS + Linux deb/AppImage via GitHub Actions)
 
 ## Structure
@@ -29,7 +30,7 @@ ui/                React + TypeScript + Tailwind CSS 4 frontend
 
 ## Development
 
-Prerequisites: Rust 1.82+ (MSVC toolchain on Windows), Node 20+.
+Prerequisites: Rust 1.90+ (MSVC toolchain on Windows), Node 20+.
 
 ```bash
 # one-time: install dependencies (root = Tauri CLI, ui = frontend)

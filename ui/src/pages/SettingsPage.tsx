@@ -24,6 +24,7 @@ export default function SettingsPage() {
       const parsed = appSettingsSchema.parse(next); // validate before sending
       const saved = await api.saveSettings(parsed);
       setSettings(saved);
+      window.dispatchEvent(new CustomEvent("enki:settings-saved", { detail: saved }));
       setStatus("saved");
       setTimeout(() => setStatus("idle"), 1500);
     } catch (e) {
@@ -50,8 +51,10 @@ export default function SettingsPage() {
     );
   }
 
-  const patch = (p: Partial<AppSettings>) =>
+  const patch = (p: Partial<AppSettings>) => {
+    if (p.theme) document.documentElement.dataset.theme = p.theme;
     setSettings({ ...settings, ...p });
+  };
 
   return (
     <div className="mx-auto max-w-3xl px-8 py-10">
@@ -79,6 +82,7 @@ export default function SettingsPage() {
       )}
 
       <form
+        noValidate
         onSubmit={(e) => {
           e.preventDefault();
           save(settings);
@@ -129,28 +133,31 @@ export default function SettingsPage() {
                 {
                   key: "show_agent_thoughts",
                   label: "Show agent reasoning phases",
-                  hint: "Display intermediate thinking steps in conversations.",
+                  hint: "Conversation views are not available in this build.",
                 },
                 {
                   key: "confirm_terminal_commands",
                   label: "Confirm terminal commands before execution",
-                  hint: "Ask before the agent runs any command.",
+                  hint: "Terminal execution is not available in this build.",
                 },
                 {
                   key: "confirm_file_writes",
                   label: "Confirm file writes",
-                  hint: "Ask before the agent modifies project files.",
+                  hint: "Agent file editing is not available in this build.",
                 },
                 {
                   key: "allow_reads_outside_workspace",
                   label: "Allow reads outside the workspace",
-                  hint: "Off by default. When on, reads outside the project root are permitted and audited.",
+                  hint: "Used by path checks. This build does not read project files.",
                 },
               ] as const
             ).map((item) => (
               <label
                 key={item.key}
-                className="flex cursor-pointer items-start justify-between gap-4 rounded-md px-3 py-2 hover:bg-surface"
+                className={cn(
+                  "flex items-start justify-between gap-4 rounded-md px-3 py-2",
+                  item.key === "allow_reads_outside_workspace" ? "cursor-pointer hover:bg-surface" : "cursor-not-allowed opacity-65",
+                )}
               >
                 <span>
                   <span className="block text-sm">{item.label}</span>
@@ -159,8 +166,9 @@ export default function SettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings[item.key]}
+                  disabled={item.key !== "allow_reads_outside_workspace"}
                   onChange={(e) => patch({ [item.key]: e.target.checked })}
-                  className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-accent)]"
+                  className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-accent)] disabled:cursor-not-allowed"
                 />
               </label>
             ))}

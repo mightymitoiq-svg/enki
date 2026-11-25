@@ -101,7 +101,7 @@ export default function AgentsPage() {
                         supported === true
                           ? "Supported"
                           : supported === false
-                            ? "Not supported by this engine"
+                            ? "Not available through ENKI yet"
                             : "Unknown"
                       }
                       className={cn(

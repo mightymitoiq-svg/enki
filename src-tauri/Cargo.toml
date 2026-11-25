@@ -1,9 +1,9 @@
 [package]
 name = "enki"
-version = "0.1.0"
+version = "0.1.1"
 description = "ENKI — private, local-first AI development platform"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.90"
 
 [lib]
 name = "enki_lib"
@@ -28,6 +28,7 @@ uuid = { version = "1", features = ["v4"] }
 url = "2"
 ureq = { version = "2", features = ["json"] }
 dirs = "6"
+tauri-plugin-dialog = "2"
 [profile.dev]
 debug = 0
 split-debuginfo = "off"

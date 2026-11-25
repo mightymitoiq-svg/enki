@@ -17,7 +17,7 @@ behavior. "Done" means built, tested, and honestly reported.
 - Real connection tests against provider model-listing endpoints
 - Agent runtime: adapter trait, registry, OpenCode discovery (real probe,
   honest capability report)
-- 24 Rust tests + 7 frontend contract tests, production builds pass
+- 24 Rust tests + 9 frontend tests, production builds pass
 
 ## Milestone 2 — Coding workspace + first live agent
 
