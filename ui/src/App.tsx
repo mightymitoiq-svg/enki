@@ -64,6 +64,19 @@ export default function App() {
     return () => window.removeEventListener("enki:settings-saved", onSettingsSaved);
   }, []);
 
+  // Apply the persisted theme to the root element (dark is the default and
+  // needs no class; light overrides the design-system custom properties).
+  useEffect(() => {
+    api
+      .getSettings()
+      .then((s) => {
+        document.documentElement.classList.toggle("light", s.theme === "light");
+      })
+      .catch(() => {
+        /* settings unavailable (e.g. tests) — stay dark */
+      });
+  }, []);
+
   // Keyboard navigation: Alt+1..4 switch pages
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

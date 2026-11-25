@@ -100,6 +100,18 @@ pub fn validate_url(url: &str) -> Result<()> {
             "provider URL must not contain a username or password".into(),
         ));
     }
+    let host = parsed.host_str().unwrap_or_default();
+    let local = host
+        .trim_end_matches('.')
+        .trim_matches(['[', ']'])
+        .eq_ignore_ascii_case("localhost")
+        || host.trim_matches(['[', ']']) == "127.0.0.1"
+        || host.trim_matches(['[', ']']) == "::1";
+    if parsed.scheme() == "http" && !local {
+        return Err(AppError::InvalidInput(
+            "HTTPS is required for remote providers; plain HTTP is allowed only for loopback services".into(),
+        ));
+    }
     Ok(())
 }
 
@@ -470,6 +482,11 @@ mod tests {
     fn url_validation() {
         assert!(validate_url("https://x.example.com").is_ok());
         assert!(validate_url("http://localhost:11434").is_ok());
+        assert!(validate_url("http://127.0.0.1:1234/v1").is_ok());
+        assert!(validate_url("http://[::1]:11434").is_ok());
+        assert!(validate_url("http://api.example.com/v1").is_err());
+        assert!(validate_url("http://192.168.1.5:8080/v1").is_err());
+        assert!(validate_url("https://user:password@api.example.com/v1").is_err());
         assert!(validate_url("ftp://example.com").is_err());
         assert!(validate_url("garbage").is_err());
     }
